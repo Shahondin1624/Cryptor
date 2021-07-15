@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
+}
+
+group 'com.github.Shahondin1624'
+version '1.0'
+java.sourceCompatibility = JavaVersion.VERSION_16
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+}
+
+sourceSets {
+    main.java.srcDir 'src/main'
+    test.java.srcDir 'src/test'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+}
+
+application {
+    mainClassName("main.Main")
+    mainModule.set("main")
+}
+
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'main.Main'
+        )
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it: zipTree(it)}
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+task main(type: JavaExec, dependsOn: classes) {
+    group = 'Execution'
+    description = 'runs main'
+    classpath sourceSets.main.runtimeClasspath
+    main = 'main.Main'
+    args('password')
+}
