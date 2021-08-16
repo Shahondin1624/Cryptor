@@ -1,25 +1,28 @@
 package main;
 
-import logic.Cryptor;
-import logic.PathHandler;
+import logic.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.List;
-import java.util.Locale;
-import java.util.Scanner;
+import java.util.*;
 
 public class Main {
-    public static void main(String[] args) {
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
+
+    public static void main(String[] args) throws IOException {
         if (args.length != 1) {
-            System.err.println("You have to provide a password as argument!");
+            logger.error("You have to provide a password as argument!");
             return;
         }
         String password = args[0];
@@ -33,59 +36,44 @@ public class Main {
                     System.out.println("Please provide a filepath/directory filepath");
                     answer = scanner.nextLine();
                     if (!isPath(answer)) {
-                        System.out.println("Not a valid path, exiting en/decryption mode");
+                        logger.error("Not a valid path, exiting encryption mode");
                         continue;
                     }
-                    List<File> encryptionFiles = PathHandler.getAllFiles(new File(normalizeFilePaths(answer)));
-                    encryptionFiles.forEach(file -> {
-                        Thread t = new Thread(() -> {
-                            Cryptor cryptor = new Cryptor();
-                            try {
-                                cryptor.encryptFile(file, password);
-                            } catch (NoSuchAlgorithmException | IOException | InvalidAlgorithmParameterException | NoSuchPaddingException |
-                                    InvalidKeySpecException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                        t.setDaemon(false);
-                        t.start();
-                    });
-                    System.out.println("Files are being encrypted");
+                    logger.info("Files are being encrypted");
+                    Files.walkFileTree(Path.of(normalizeFilePaths(answer)), new CustomFileVisitor(new Cryptor(), CipherMode.ENCRYPT, password));
+                    abort = true;
                 }
                 case "de" -> {
                     System.out.println("Please provide a filepath/directory filepath");
                     answer = scanner.nextLine();
                     if (!isPath(answer)) {
-                        System.out.println("Not a valid path, exiting en/decryption mode");
+                        logger.error("Not a valid path, exiting decryption mode");
                         continue;
                     }
-                    List<File> decryptionFiles = PathHandler.getAllFiles(new File(normalizeFilePaths(answer)));
-                    decryptionFiles.forEach(file -> {
-                        Thread t = new Thread(() -> {
-                            Cryptor cryptor = new Cryptor();
-                            try {
-                                cryptor.decryptFile(file, password);
-                            } catch (NoSuchAlgorithmException | IOException | InvalidAlgorithmParameterException | NoSuchPaddingException |
-                                    InvalidKeySpecException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                        t.setDaemon(false);
-                        t.start();
-                    });
-                    System.out.println("Files are being decrypted");
-                }
-                default -> {
+                    logger.info("Files are being decrypted");
+                    Files.walkFileTree(Path.of(normalizeFilePaths(answer)), new CustomFileVisitor(new Cryptor(), CipherMode.DECRYPT, password));
                     abort = true;
-                    scanner.close();
                 }
+                default -> abort = true;
             }
         }
+        scanner.close();
+//        waitUntilAllThreadsAreDone(threads);
     }
 
     //unused
     private static String normalizeFilePaths(String path) {
-        return path;
+        switch (File.separator) {
+            case "\\" -> {
+                return path.replaceAll("/", "\\");
+            }
+            case "/" -> {
+                return path.replaceAll("\\\\", "/");
+            }
+            default -> {
+                return path;
+            }
+        }
     }
 
     private static boolean isPath(String path) {
@@ -93,7 +81,7 @@ public class Main {
             File file = new File(path);
             return file.exists() && file.canRead() && file.canWrite();
         } catch (RuntimeException e) {
-            System.out.println("Not a valid path, exiting en/decryption mode");
+            logger.error("When testing path {} was thrown: {}", e.getClass().getSimpleName(), e.getMessage());
             return false;
         }
     }
