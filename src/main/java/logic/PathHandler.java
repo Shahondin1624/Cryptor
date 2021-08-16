@@ -6,6 +6,7 @@ import java.util.List;
 
 public class PathHandler {
 
+    @Deprecated
     public static List<File> getAllFiles(File file) {
         List<File> result = new ArrayList<>();
         if (file.isFile()) {
